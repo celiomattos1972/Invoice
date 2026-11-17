@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3a3a3a">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Gerador de Invoice</title>
+<style>
+:root {
+  --bg: #f4f5f6;
+  --surface: #ffffff;
+  --surface-2: #eceef0;
+  --fg: #1d2023;
+  --muted: #5d656d;
+  --line: #d5d9dd;
+  --accent: #1f5fbf;
+  --accent-fg: #ffffff;
+  --danger: #b3261e;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141618; --surface: #1c1f22; --surface-2: #272b2f; --fg: #eceef0;
+    --muted: #9aa3ab; --line: #343a40; --accent: #6ea2f0; --accent-fg: #0d1a2e; --danger: #f2a09a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141618; --surface: #1c1f22; --surface-2: #272b2f; --fg: #eceef0;
+  --muted: #9aa3ab; --line: #343a40; --accent: #6ea2f0; --accent-fg: #0d1a2e; --danger: #f2a09a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.4;
+  padding-block: 20px 110px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font-size: 24px; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; max-width: 60ch; }
+section.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+section.card > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; }
+.row > * { flex: 1 1 200px; min-width: 0; }
+label { display: block; min-width: 0; }
+.lbl { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 5px; }
+input, textarea {
+  width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 10px; font: inherit; min-width: 0;
+}
+textarea { resize: vertical; }
+input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.item { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--bg); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.item .kind { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.item .kind b { color: var(--fg); font-weight: 600; }
+.item .fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.item .fields > * { min-width: 0; }
+.f-date { flex: 1 1 140px; }
+.f-desc { flex: 2 1 220px; }
+.f-qty { flex: 0 1 100px; min-width: 80px; }
+.f-rate { flex: 0 1 130px; min-width: 100px; }
+.f-total { flex: 0 1 120px; min-width: 96px; }
+.total-box { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; font-variant-numeric: tabular-nums; }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); padding: 9px 12px; }
+button.danger { background: transparent; color: var(--danger); }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.adds { display: flex; flex-wrap: wrap; gap: 8px; }
+.note { color: var(--muted); font-size: 13.5px; margin: 0; max-width: 70ch; }
+.preview-wrap { width: 100%; }
+.preview-clip { position: relative; overflow: hidden; }
+.preview-inner { transform-origin: top left; outline: 1px solid var(--line); width: 816px; }
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--surface); border-top: 1px solid var(--line);
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  display: flex; gap: 10px; justify-content: flex-end; align-items: center; flex-wrap: wrap;
+}
+.bar .msg { margin-right: auto; font-size: 13.5px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.bar button { padding: 11px 18px; }
+.bar a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Gerador de Invoice</h1>
+    <p class="sub">Preencha os campos, confira a prévia no mesmo layout da invoice original e baixe o PDF em tamanho carta. A invoice sai em inglês, igual à que você manda para a JRA Cable.</p>
+  </header>
+
+  <section class="card">
+    <h2>Quem emite</h2>
+    <div class="row">
+      <label><span class="lbl">Nome</span><input id="fromName" type="text" autocomplete="off"></label>
+      <label><span class="lbl">Endereço</span><textarea id="fromAddr" rows="2"></textarea></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Cliente</h2>
+    <div class="row">
+      <label><span class="lbl">Nome (Bill To)</span><input id="billName" type="text" autocomplete="off"></label>
+      <label><span class="lbl">Endereço</span><textarea id="billAddr" rows="2"></textarea></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Dados da invoice</h2>
+    <div class="row">
+      <label><span class="lbl">Número</span><input id="invoiceNumber" type="text" inputmode="numeric" autocomplete="off"></label>
+      <label><span class="lbl">Imposto (%)</span><input id="taxInput" type="text" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <div class="row">
+      <label><span class="lbl">Data</span><input id="invoiceDate" type="date"></label>
+      <label><span class="lbl">Vencimento (padrão: data + 10 dias)</span><input id="dueDate" type="date"></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Itens</h2>
+    <p class="note">Dias trabalhados contam só segunda a sexta, e você pode ajustar a quantidade depois. Per diem conta todos os dias, inclusive o primeiro e o último. Reembolso entra com quantidade 1.</p>
+    <div id="items" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div class="adds">
+      <button type="button" id="addWorked">Adicionar dias trabalhados</button>
+      <button type="button" id="addPerdiem">Adicionar per diem</button>
+      <button type="button" id="addReimb">Adicionar reembolso</button>
+      <button type="button" id="addCustom">Adicionar outro item</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Prévia</h2>
+    <p class="note">A prévia abaixo usa os valores atuais. No celular ela diminui para caber na tela; o PDF sai em tamanho carta, uma página.</p>
+    <div class="preview-wrap" id="previewWrap">
+      <div class="preview-clip" id="previewClip"><div class="preview-inner" id="previewInner"></div></div>
+    </div>
+  </section>
+</div>
+
+<div class="bar">
+  <span class="msg" id="msg"></span>
+  <button type="button" id="btnShare" hidden>Compartilhar</button>
+  <button type="button" class="primary" id="btnPdf">Baixar PDF</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var LS_KEY = "celio-invoice-last-number";
+  var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  /* ---------- cálculo e datas (do arquivo original) ---------- */
+  function parseNum(raw) {
+    var cleaned = String(raw).trim().replace(/\s/g, "").replace(",", ".");
+    var n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function cents(n) { return Math.round(n * 100) / 100; }
+  function usd(n) { return n.toLocaleString("en-US", { style: "currency", currency: "USD" }); }
+  function formatQty(n) { if (!Number.isFinite(n)) return "0"; return String(n); }
+  function parseISO(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return null;
+    return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  }
+  function toMDY(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return iso;
+    return m[2] + "/" + m[3] + "/" + m[1];
+  }
+  function formatLongDate(iso) {
+    var d = parseISO(iso);
+    if (!d) return iso;
+    return MONTHS[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear();
+  }
+  function addDays(iso, days) {
+    var d = parseISO(iso);
+    if (!d) return iso;
+    d.setUTCDate(d.getUTCDate() + days);
+    var y = d.getUTCFullYear();
+    var m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    var day = String(d.getUTCDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+  function countWeekdays(start, end) {
+    var a = parseISO(start), b = parseISO(end);
+    if (!a || !b || b < a) return 0;
+    var n = 0, cur = new Date(a.getTime());
+    while (cur <= b) {
+      var wd = cur.getUTCDay();
+      if (wd !== 0 && wd !== 6) n += 1;
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    return n;
+  }
+  function countInclusiveDays(start, end) {
+    var a = parseISO(start), b = parseISO(end);
+    if (!a || !b || b < a) return 0;
+    return Math.round((b.getTime() - a.getTime()) / 86400000) + 1;
+  }
+  function workedDesc(s, e) { return "Worked Day from " + toMDY(s) + " to " + toMDY(e); }
+  function perdiemDesc(s, e) { return "Per Diem from " + toMDY(s) + " to " + toMDY(e); }
+  function weekBoundsAround(iso) {
+    var d = parseISO(iso) || parseISO("2026-11-07") || new Date();
+    var wd = d.getUTCDay();
+    var toMon = wd === 0 ? -6 : 1 - wd;
+    var mon = addDays(iso, toMon);
+    return { start: mon, end: addDays(mon, 4) };
+  }
+
+  /* ---------- gerador de PDF (do arquivo original, sem mudanças) ---------- */
+  function fillLatinWidths(table) {
+    table[160] = 278; table[196] = table[65]; table[199] = table[67]; table[201] = table[69];
+    table[209] = table[78]; table[214] = table[79]; table[220] = table[85]; table[223] = table[83];
+    table[224] = table[97]; table[225] = table[97]; table[226] = table[97]; table[227] = table[97];
+    table[231] = table[99]; table[232] = table[101]; table[233] = table[101]; table[234] = table[101];
+    table[235] = table[101]; table[237] = table[105]; table[241] = table[110]; table[243] = table[111];
+    table[244] = table[111]; table[245] = table[111]; table[250] = table[117];
+  }
+  function makeWidths(ascii) {
+    var w = [];
+    for (var i = 0; i < 256; i++) w.push(600);
+    for (var j = 0; j < ascii.length; j++) w[j + 32] = ascii[j];
+    fillLatinWidths(w);
+    return w;
+  }
+  var HELV = makeWidths([
+    278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
+    556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
+    1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778,
+    667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556,
+    333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
+    556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584
+  ]);
+  var HELVB = makeWidths([
+    278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278,
+    556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611,
+    975, 722, 722, 722, 722, 667, 611, 778, 778, 389, 556, 778, 667, 944, 722, 778,
+    667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556,
+    333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611,
+    611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584
+  ]);
+  function pdfTextWidth(s, bold, size) {
+    var table = bold ? HELVB : HELV, w = 0;
+    for (var i = 0; i < s.length; i++) {
+      var code = s.charCodeAt(i);
+      w += table[code < 256 ? code : 63] || 600;
+    }
+    return (w / 1000) * size;
+  }
+  function pdfEscape(s) {
+    var out = "";
+    for (var i = 0; i < s.length; i++) {
+      var ch = s[i], c = s.charCodeAt(i);
+      if (ch === "(" || ch === ")" || ch === "\\") out += "\\" + ch;
+      else if (c >= 32 && c <= 126) out += ch;
+      else if (c > 0 && c < 256) out += "\\" + c.toString(8).padStart(3, "0");
+      else out += "?";
+    }
+    return out;
+  }
+  function pdfRgb(hex) {
+    var n = parseInt(hex.slice(1), 16);
+    var r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    return r.toFixed(4) + " " + g.toFixed(4) + " " + b.toFixed(4);
+  }
+  function pdfRoundRect(x, y, w, h, r) {
+    var c = r * 0.5522847498;
+    var f = function (v) { return v.toFixed(2); };
+    return [
+      f(x + r) + " " + f(y) + " m",
+      f(x + w - r) + " " + f(y) + " l",
+      f(x + w - r + c) + " " + f(y) + " " + f(x + w) + " " + f(y + r - c) + " " + f(x + w) + " " + f(y + r) + " c",
+      f(x + w) + " " + f(y + h - r) + " l",
+      f(x + w) + " " + f(y + h - r + c) + " " + f(x + w - r + c) + " " + f(y + h) + " " + f(x + w - r) + " " + f(y + h) + " c",
+      f(x + r) + " " + f(y + h) + " l",
+      f(x + r - c) + " " + f(y + h) + " " + f(x) + " " + f(y + h - r + c) + " " + f(x) + " " + f(y + h - r) + " c",
+      f(x) + " " + f(y + r) + " l",
+      f(x) + " " + f(y + r - c) + " " + f(x + r - c) + " " + f(y) + " " + f(x + r) + " " + f(y) + " c",
+      "h"
+    ].join("\n");
+  }
+  function pdfBaseline(top, size) { return 792 - (top + size * 0.718); }
+  function toPdfBytes(source) {
+    var bytes = new Uint8Array(source.length);
+    for (var i = 0; i < source.length; i++) bytes[i] = source.charCodeAt(i) & 255;
+    return bytes;
+  }
+  function bytesToBase64(bytes) {
+    var chunk = 0x8000, binary = "";
+    for (var i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+    }
+    return btoa(binary);
+  }
+  function buildInvoicePdf(data) {
+    var ops = [];
+    function fill(hex) { ops.push(pdfRgb(hex) + " rg"); }
+    function stroke(hex) { ops.push(pdfRgb(hex) + " RG"); }
+    function text(str, x, top, size, bold, color, align) {
+      if (!str) return;
+      var px = x;
+      if (align === "right") px = x - pdfTextWidth(str, bold, size);
+      fill(color);
+      ops.push("BT");
+      ops.push((bold ? "/F2" : "/F1") + " " + size + " Tf");
+      ops.push("1 0 0 1 " + px.toFixed(2) + " " + pdfBaseline(top, size).toFixed(2) + " Tm");
+      ops.push("(" + pdfEscape(str) + ") Tj");
+      ops.push("ET");
+    }
+    var fromLines = data.fromAddr.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    text(data.fromName, 48, 26.642, 9.75, true, "#333333");
+    fromLines.forEach(function (line, i) { text(line, 48, 38.642 + i * 12, 9.75, false, "#333333"); });
+    text("INVOICE", 575.187, 27.77, 27.7, false, "#3a3a3a", "right");
+    text("# " + data.invoiceNumber, 571.456, 58.752, 12, false, "#777777", "right");
+
+    text("Date:", 462.441, 110.642, 9.75, false, "#777777", "right");
+    text(formatLongDate(data.invoiceDate), 566.98, 110.642, 9.75, false, "#333333", "right");
+    text("Due Date:", 462.441, 132.392, 9.75, false, "#777777", "right");
+    text(formatLongDate(data.dueDate), 567.144, 132.392, 9.75, false, "#333333", "right");
+
+    var barH = 25.2;
+    fill("#f5f5f5");
+    ops.push(pdfRoundRect(317.28, 792 - 148.6 - barH, 269, barH, 3));
+    ops.push("f");
+    text("Balance Due:", 462.713, 155.299, 11.25, true, "#333333", "right");
+    text(usd(data.total), 567.421, 155.299, 11.25, true, "#333333", "right");
+
+    var billLines = data.billAddr.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    text("Bill To:", 48, 124.142, 9.75, false, "#777777");
+    text(data.billName, 48, 139.892, 9.75, true, "#333333");
+    billLines.forEach(function (line, i) { text(line, 48, 151.892 + i * 12, 9.75, false, "#333333"); });
+
+    var thH = 20.4, thY = 792 - 208.8 - thH;
+    fill("#3a3a3a");
+    ops.push(pdfRoundRect(29.28, thY, 553.2, thH, 3));
+    ops.push("f");
+    ops.push("0.7 w");
+    stroke("#7f7f7f");
+    ops.push("357.6 " + (thY + 2).toFixed(2) + " m");
+    ops.push("357.6 " + (thY + thH - 2).toFixed(2) + " l");
+    ops.push("S");
+
+    text("Item", 44.25, 214.142, 9.75, false, "#ffffff");
+    text("Quantity", 372.75, 214.142, 9.75, false, "#ffffff");
+    text("Rate", 493.034, 214.142, 9.75, false, "#ffffff", "right");
+    text("Amount", 567.546, 214.142, 9.75, false, "#ffffff", "right");
+
+    data.items.forEach(function (item, i) {
+      var top = i === 0 ? 239.642 : 239.642 + 16.5 + (i - 1) * 17.25;
+      text(item.description, 44.25, top, 9.75, true, "#333333");
+      text(formatQty(item.quantity), 372.75, top, 9.75, false, "#333333");
+      text(usd(item.rate), 492.66, top, 9.75, false, "#333333", "right");
+      text(usd(item.amount), 567.53, top, 9.75, false, "#333333", "right");
+    });
+
+    var lastTop = data.items.length <= 1 ? 239.642 : 239.642 + 16.5 + (data.items.length - 2) * 17.25;
+    var totalsTop = lastTop + 65.25;
+    var taxLabel = String(data.taxPct);
+    text("Subtotal:", 462.441, totalsTop, 9.75, false, "#777777", "right");
+    text(usd(data.subtotal), 567.53, totalsTop, 9.75, false, "#333333", "right");
+    text("Tax (" + taxLabel + "%):", 462.441, totalsTop + 21.75, 9.75, false, "#777777", "right");
+    text(usd(data.tax), 567.53, totalsTop + 21.75, 9.75, false, "#333333", "right");
+    text("Total:", 462.441, totalsTop + 43.5, 9.75, false, "#777777", "right");
+    text(usd(data.total), 567.53, totalsTop + 43.5, 9.75, false, "#333333", "right");
+
+    var stream = ops.join("\n");
+    var objects = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> /ProcSet [/PDF /Text] >> /Contents 6 0 R >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
+      "<< /Length " + stream.length + " >>\nstream\n" + stream + "\nendstream"
+    ];
+    var pdf = "%PDF-1.4\n";
+    var offsets = [0];
+    for (var i = 0; i < objects.length; i++) {
+      offsets.push(pdf.length);
+      pdf += (i + 1) + " 0 obj\n" + objects[i] + "\nendobj\n";
+    }
+    var xrefPos = pdf.length;
+    pdf += "xref\n0 " + (objects.length + 1) + "\n";
+    pdf += "0000000000 65535 f \n";
+    for (var k = 1; k < offsets.length; k++) pdf += String(offsets[k]).padStart(10, "0") + " 00000 n \n";
+    pdf += "trailer\n<< /Size " + (objects.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xrefPos + "\n%%EOF\n";
+    return toPdfBytes(pdf);
+  }
+  window.__buildInvoicePdf = buildInvoicePdf;
+
+  /* ---------- folha da prévia (mesmo layout do arquivo original) ---------- */
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function lines(s) { return s.split("\n").map(function (x) { return x.trim(); }).filter(Boolean); }
+  function sheetHtml(p) {
+    var fl = lines(p.fromAddr).map(function (l) { return '<div style="font-weight:400;color:#333333">' + esc(l) + "</div>"; }).join("");
+    var bl = lines(p.billAddr).map(function (l) { return '<div style="font-weight:400;color:#333333">' + esc(l) + "</div>"; }).join("");
+    var th = "background:#3a3a3a;color:#ffffff;font-weight:700;padding:7px 20px;box-sizing:border-box;";
+    var rows = p.items.map(function (item, index) {
+      var pad = index === 0 ? "12px 20px 4px 20px" : "4px 20px";
+      var base = "padding:" + pad + ";color:#333333;vertical-align:top;box-sizing:border-box;";
+      return "<tr>" +
+        '<td style="' + base + 'font-weight:700">' + esc(item.description) + "</td>" +
+        '<td style="' + base + 'font-weight:400;text-align:left">' + esc(formatQty(item.quantity)) + "</td>" +
+        '<td style="' + base + 'font-weight:400;text-align:right">' + usd(item.rate) + "</td>" +
+        '<td style="' + base + 'font-weight:400;text-align:right">' + usd(item.amount) + "</td></tr>";
+    }).join("");
+    var tot = function (label, val) {
+      return '<div style="display:flex;justify-content:flex-end;padding:6px 20px">' +
+        '<span style="color:#777777;width:100px;text-align:right">' + label + "</span>" +
+        '<span style="color:#333333;width:140px;text-align:right">' + val + "</span></div>";
+    };
+    var dateRow = function (label, val) {
+      return '<div style="display:flex;align-items:baseline;padding:5px 24px 5px 16px">' +
+        '<div style="flex:1;text-align:right;color:#777777">' + label + "</div>" +
+        '<div style="width:165px;text-align:right;color:#333333">' + esc(val) + "</div></div>";
+    };
+    return '<div class="celio-invoice-sheet" style="width:8.5in;min-height:11in;box-sizing:border-box;background:#ffffff;color:#333333;font-family:\'Helvetica Neue\',Helvetica,Arial,\'Nimbus Sans\',\'Liberation Sans\',sans-serif;font-size:13px;line-height:16px;padding:36px 40px 48px 40px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:54px">' +
+        '<div style="padding-left:24px;padding-top:2px"><div style="font-weight:700;color:#333333">' + esc(p.fromName) + "</div>" + fl + "</div>" +
+        '<div style="text-align:right;padding-right:8px">' +
+          '<div style="font-size:36px;font-weight:400;color:#3a3a3a;line-height:36px;letter-spacing:0.4px">INVOICE</div>' +
+          '<div style="font-size:16px;color:#777777;line-height:16px;margin-top:5px"># ' + esc(p.invoiceNumber) + "</div>" +
+        "</div></div>" +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">' +
+        '<div style="padding-left:24px;padding-top:18px"><div style="color:#777777;margin-bottom:5px">Bill To:</div><div style="font-weight:700;color:#333333">' + esc(p.billName) + "</div>" + bl + "</div>" +
+        '<div style="width:360px">' + dateRow("Date:", formatLongDate(p.invoiceDate)) + dateRow("Due Date:", formatLongDate(p.dueDate)) +
+          '<div style="display:flex;align-items:baseline;background:#f5f5f5;border-radius:4px;margin-top:6px;padding:9px 24px;font-weight:700;font-size:15px;line-height:16px;color:#333333">' +
+            '<div style="flex:1;text-align:right">Balance Due:</div><div style="width:141px;text-align:right">' + usd(p.total) + "</div></div>" +
+        "</div></div>" +
+      '<table style="width:100%;border-collapse:collapse;margin-top:47px;table-layout:fixed"><thead><tr>' +
+        '<th style="' + th + 'text-align:left;border-radius:4px 0 0 4px;border-right:1px solid #7f7f7f">Item</th>' +
+        '<th style="' + th + 'text-align:left;width:100px">Quantity</th>' +
+        '<th style="' + th + 'text-align:right;width:100px">Rate</th>' +
+        '<th style="' + th + 'text-align:right;width:100px;border-radius:0 4px 4px 0">Amount</th>' +
+      "</tr></thead><tbody>" + rows + "</tbody></table>" +
+      '<div style="width:280px;margin-left:auto;margin-top:64px">' +
+        tot("Subtotal:", usd(p.subtotal)) + tot("Tax (" + esc(String(p.taxPct)) + "%):", usd(p.tax)) + tot("Total:", usd(p.total)) +
+      "</div></div>";
+  }
+
+  /* ---------- estado ---------- */
+  var nextId = 6;
+  var S = {
+    fromName: "Celio da Rocha Mattos Neto",
+    fromAddr: "84 Chambers St apt 2 Newark, NJ 07105",
+    billName: "JRA Cable",
+    billAddr: "5886 S Utahna Dr Murray UT 84107",
+    invoiceNumber: "208",
+    invoiceDate: "2026-11-07",
+    dueDate: "2026-11-17",
+    taxInput: "0",
+    items: [
+      { id: 1, kind: "worked", description: "Worked Day from 11/02/2026 to 11/06/2026", quantity: "5", rate: "280", start: "2026-11-02", end: "2026-11-06" },
+      { id: 2, kind: "perdiem", description: "Per Diem from 11/01/2026 to 11/07/2026", quantity: "7", rate: "50", start: "2026-11-01", end: "2026-11-07" },
+      { id: 3, kind: "reimb", description: "Reimbursement Gas", quantity: "1", rate: "20", start: "", end: "" },
+      { id: 4, kind: "reimb", description: "Reimbursement Gas", quantity: "1", rate: "34.75", start: "", end: "" },
+      { id: 5, kind: "reimb", description: "Reimbursement Storage Chicago", quantity: "1", rate: "146.25", start: "", end: "" }
+    ]
+  };
+  try {
+    var raw = window.localStorage.getItem(LS_KEY);
+    if (raw) { var n0 = parseInt(raw, 10); if (Number.isFinite(n0)) S.invoiceNumber = String(n0 + 1); }
+  } catch (e) { /* armazenamento bloqueado */ }
+
+  function compute() {
+    var rows = S.items.map(function (item) {
+      var quantity = parseNum(item.quantity), rate = parseNum(item.rate);
+      var amount = cents(quantity * rate);
+      var description = item.description;
+      if (item.kind === "worked" && item.start && item.end) description = workedDesc(item.start, item.end);
+      else if (item.kind === "perdiem" && item.start && item.end) description = perdiemDesc(item.start, item.end);
+      return { description: description, quantity: quantity, rate: rate, amount: amount };
+    });
+    var subtotal = cents(rows.reduce(function (s, r) { return s + r.amount; }, 0));
+    var taxPct = parseNum(S.taxInput);
+    var tax = cents(subtotal * (taxPct / 100));
+    var total = cents(subtotal + tax);
+    return { rows: rows, subtotal: subtotal, tax: tax, taxPct: taxPct, total: total };
+  }
+  function pdfData() {
+    var c = compute();
+    return {
+      fromName: S.fromName, fromAddr: S.fromAddr, billName: S.billName, billAddr: S.billAddr,
+      invoiceNumber: S.invoiceNumber, invoiceDate: S.invoiceDate, dueDate: S.dueDate,
+      taxPct: c.taxPct, items: c.rows, subtotal: c.subtotal, tax: c.tax, total: c.total
+    };
+  }
+
+  /* ---------- interface ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var itemsEl = $("items");
+  var inner = $("previewInner"), clip = $("previewClip"), wrap = $("previewWrap");
+  var scale = 1;
+
+  function applyScale() {
+    inner.style.transform = "scale(" + scale + ")";
+    clip.style.height = (1056 * scale) + "px";
+  }
+  function refreshPreview() {
+    inner.innerHTML = sheetHtml(pdfData());
+    applyScale();
+  }
+  function kindLabel(k) { return k === "worked" ? "Dias trabalhados" : k === "perdiem" ? "Per diem" : k === "reimb" ? "Reembolso" : "Item"; }
+  function autoDesc(item) {
+    if (item.kind === "worked" && item.start && item.end) return workedDesc(item.start, item.end);
+    if (item.kind === "perdiem" && item.start && item.end) return perdiemDesc(item.start, item.end);
+    return item.description;
+  }
+  function syncCard(card, item) {
+    var d = autoDesc(item);
+    card.querySelector(".kind").innerHTML = "<b>" + kindLabel(item.kind) + "</b>" + (d ? " · " + esc(d) : "");
+    var q = card.querySelector("[data-f=quantity]");
+    if (q && document.activeElement !== q) q.value = item.quantity;
+    card.querySelector(".total-box").textContent = usd(cents(parseNum(item.quantity) * parseNum(item.rate)));
+  }
+  function findItem(id) { return S.items.filter(function (i) { return i.id === id; })[0]; }
+
+  function buildCard(item) {
+    var card = document.createElement("div");
+    card.className = "item";
+    card.setAttribute("data-id", item.id);
+    var k = item.kind, h = '<div class="kind"></div><div class="fields">';
+    if (k === "worked" || k === "perdiem") {
+      h += '<label class="f-date"><span class="lbl">De</span><input type="date" data-f="start"></label>';
+      h += '<label class="f-date"><span class="lbl">Até</span><input type="date" data-f="end"></label>';
+    }
+    if (k === "reimb" || k === "custom") {
+      h += '<label class="f-desc"><span class="lbl">Descrição</span><input type="text" data-f="description" placeholder="' + (k === "reimb" ? "Reimbursement Gas" : "Descrição do item") + '"></label>';
+    }
+    if (k !== "reimb") {
+      h += '<label class="f-qty"><span class="lbl">' + (k === "worked" ? "Dias úteis" : k === "perdiem" ? "Dias" : "Qtd") + '</span><input type="text" inputmode="decimal" data-f="quantity"></label>';
+    }
+    h += '<label class="f-rate"><span class="lbl">' + (k === "reimb" ? "Valor (US$)" : "Valor unit. (US$)") + '</span><input type="text" inputmode="decimal" data-f="rate"></label>';
+    h += '<div class="f-total"><span class="lbl">Total</span><div class="total-box"></div></div>';
+    h += '<button type="button" class="danger" data-remove="1">Remover</button></div>';
+    card.innerHTML = h;
+    card.querySelectorAll("[data-f]").forEach(function (inp) { inp.value = item[inp.getAttribute("data-f")]; });
+    syncCard(card, item);
+    return card;
+  }
+  function renderItems() {
+    itemsEl.innerHTML = "";
+    S.items.forEach(function (it) { itemsEl.appendChild(buildCard(it)); });
+  }
+
+  itemsEl.addEventListener("input", function (e) {
+    var inp = e.target.closest("[data-f]");
+    if (!inp) return;
+    var card = inp.closest(".item");
+    var item = findItem(Number(card.getAttribute("data-id")));
+    var f = inp.getAttribute("data-f");
+    item[f] = inp.value;
+    if ((f === "start" || f === "end") && item.start && item.end) {
+      if (item.kind === "worked") { item.quantity = String(countWeekdays(item.start, item.end)); item.description = workedDesc(item.start, item.end); }
+      if (item.kind === "perdiem") { item.quantity = String(countInclusiveDays(item.start, item.end)); item.description = perdiemDesc(item.start, item.end); }
+    }
+    syncCard(card, item);
+    refreshPreview();
+  });
+  itemsEl.addEventListener("click", function (e) {
+    if (!e.target.closest("[data-remove]")) return;
+    var id = Number(e.target.closest(".item").getAttribute("data-id"));
+    S.items = S.items.filter(function (i) { return i.id !== id; });
+    renderItems(); refreshPreview();
+  });
+
+  function addItem(obj) { obj.id = nextId++; S.items.push(obj); renderItems(); refreshPreview(); }
+  $("addWorked").onclick = function () {
+    var b = weekBoundsAround(S.invoiceDate);
+    addItem({ kind: "worked", start: b.start, end: b.end, quantity: String(countWeekdays(b.start, b.end)), rate: "280", description: workedDesc(b.start, b.end) });
+  };
+  $("addPerdiem").onclick = function () {
+    var end = S.invoiceDate, start = addDays(end, -6);
+    addItem({ kind: "perdiem", start: start, end: end, quantity: String(countInclusiveDays(start, end)), rate: "50", description: perdiemDesc(start, end) });
+  };
+  $("addReimb").onclick = function () { addItem({ kind: "reimb", start: "", end: "", quantity: "1", rate: "", description: "Reimbursement " }); };
+  $("addCustom").onclick = function () { addItem({ kind: "custom", start: "", end: "", quantity: "1", rate: "", description: "" }); };
+
+  ["fromName", "fromAddr", "billName", "billAddr", "invoiceNumber", "taxInput", "dueDate"].forEach(function (id) {
+    var el = $(id);
+    el.value = S[id];
+    el.addEventListener("input", function () { S[id] = el.value; refreshPreview(); });
+  });
+  var dateEl = $("invoiceDate");
+  dateEl.value = S.invoiceDate;
+  dateEl.addEventListener("input", function () {
+    var next = dateEl.value;
+    var prevAuto = addDays(S.invoiceDate, 10);
+    S.invoiceDate = next;
+    if (S.dueDate === prevAuto && next) { S.dueDate = addDays(next, 10); $("dueDate").value = S.dueDate; }
+    refreshPreview();
+  });
+
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(function (entries) {
+      var w = entries[0].contentRect.width;
+      scale = Math.min(1, w / 816);
+      applyScale();
+    }).observe(wrap);
+  }
+
+  /* ---------- baixar PDF ---------- */
+  var msg = $("msg");
+  function rememberNumber() {
+    var n = parseInt(String(S.invoiceNumber).trim(), 10);
+    if (!Number.isFinite(n)) return;
+    try { window.localStorage.setItem(LS_KEY, String(n)); } catch (e) { /* ignora */ }
+  }
+  var busy = false;
+  var lastFile = null;
+  function makeFile() {
+    rememberNumber();
+    var bytes = buildInvoicePdf(pdfData());
+    var filename = "Invoice " + S.invoiceNumber + ".pdf";
+    return new File([bytes], filename, { type: "application/pdf" });
+  }
+  $("btnPdf").addEventListener("click", function () {
+    if (busy) return;
+    busy = true;
+    try {
+      var file = makeFile();
+      lastFile = file;
+      var url = URL.createObjectURL(file);
+      var a = document.createElement("a");
+      a.href = url; a.download = file.name; a.style.display = "none";
+      document.body.appendChild(a); a.click(); a.remove();
+      msg.innerHTML = 'PDF gerado: ' + esc(file.name) + '. <a href="' + url + '" target="_blank" rel="noopener">Abrir</a>';
+    } catch (err) {
+      msg.textContent = "Não consegui gerar o PDF. Tente de novo.";
+    } finally { busy = false; }
+  });
+  var shareBtn = $("btnShare");
+  try {
+    var probe = new File(["x"], "x.pdf", { type: "application/pdf" });
+    if (navigator.canShare && navigator.canShare({ files: [probe] })) shareBtn.hidden = false;
+  } catch (e) { /* sem compartilhamento */ }
+  shareBtn.addEventListener("click", async function () {
+    try {
+      var file = makeFile();
+      await navigator.share({ files: [file], title: file.name });
+    } catch (err) {
+      if (!err || err.name !== "AbortError") msg.textContent = "Não deu pra compartilhar. Use Baixar PDF.";
+    }
+  });
+
+  renderItems();
+  refreshPreview();
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+}
+</script>
+</body>
+</html>
