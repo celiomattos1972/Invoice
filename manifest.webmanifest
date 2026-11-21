@@ -1,13 +1,13 @@
 {
-  "name": "Gerador de Invoice",
-  "short_name": "Invoice",
-  "description": "Gera a invoice em PDF para a JRA Cable.",
+  "name": "Minhas Invoices",
+  "short_name": "Invoices",
+  "description": "Gera invoices em PDF para a JRA Cable e controla os pagamentos.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#3a3a3a",
-  "theme_color": "#3a3a3a",
+  "background_color": "#15191f",
+  "theme_color": "#15191f",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
